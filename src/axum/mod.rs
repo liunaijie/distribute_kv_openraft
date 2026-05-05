@@ -15,7 +15,8 @@ use tower_http::{
 };
 use tracing::info_span;
 
-mod v1;
+pub mod api;
+mod raft;
 
 const REQUEST_ID_HEADER: &str = "x-request-id";
 
@@ -75,18 +76,10 @@ impl ApiResponse {
             data: None,
         }
     }
-
-    pub fn error_with_str(message: &str) -> Self {
-        Self {
-            status: false,
-            message: Some(message.into()),
-            data: None,
-        }
-    }
 }
 
-pub async fn start_axum_server(port: u32) {
-    let app = create_router();
+pub async fn start_axum_server(port: u32, with_raft: bool) {
+    let app = create_router(with_raft);
     let address = format!("0.0.0.0:{}", port);
     tracing::info!("Starting server at: http://{}", address);
 
@@ -95,9 +88,8 @@ pub async fn start_axum_server(port: u32) {
     axum::serve(listener, app).await.unwrap();
     tracing::info!("Server started successfully");
 }
-
 /// 创建路由
-fn create_router() -> Router {
+fn create_router(with_raft: bool) -> Router {
     let x_request_id = HeaderName::from_static(REQUEST_ID_HEADER);
 
     let middleware = ServiceBuilder::new()
@@ -133,12 +125,14 @@ fn create_router() -> Router {
     // let static_service = ServeDir::new("static")
     //     .append_index_html_on_directories(true)
     //     .not_found_service(ServeFile::new("static/index.html"));
-
     Router::new()
-        .route("/api/health", get(health_check))
-        .nest("/api/v1", v1::v1_routes())
-        // .nest_service("/assets", ServeDir::new("static/assets"))
-        // .fallback_service(static_service)
+        .route("/health", get(health_check))
+        .nest("/api", api::app_routes())
+        .merge(if with_raft {
+            Router::new().nest("/raft", raft::raft_routes())
+        } else {
+            Router::new()
+        })
         .layer(middleware)
         .layer(cors)
 }

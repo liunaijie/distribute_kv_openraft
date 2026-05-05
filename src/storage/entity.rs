@@ -25,6 +25,16 @@ impl DataEntity {
             .unwrap()
             .as_millis()
     }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, anyhow::Error> {
+        let entity = serde_json::from_slice(bytes)?;
+        Ok(entity)
+    }
+
+    pub fn as_bytes(&self) -> Result<Vec<u8>, anyhow::Error> {
+        let bytes = serde_json::to_vec(self)?;
+        Ok(bytes)
+    }
 }
 
 impl Display for DataEntity {
