@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+async-trait = "0.1.89"
+
 # storage
 rocksdb = "0.24.0"
 
@@ -19,7 +21,15 @@ tower-http = { version = "0.6.8", features = ["request-id", "trace","propagate-h
 ## error handling
 anyhow = "1.0"
 thiserror = "1.0"
+## config
+dotenv = "0.15.0"
+config = "0.13.3"
 ## logging
 tracing = "0.1.43"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt", "std", "local-time"] }
 tracing-appender = { version = "0.2.4"}
+## openraft
+openraft = { git = "https://github.com/databendlabs/openraft.git", features = [
+    "serde",
+    "type-alias",
+] }

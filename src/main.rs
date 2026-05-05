@@ -1,24 +1,22 @@
 use anyhow::{Error, Result};
 use tracing::info;
 
-mod api;
+mod axum;
+mod raft;
 mod storage;
 mod utils;
-
-use storage::StorageService;
-
-use crate::storage::rocksdb::RocksdbStorage;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     utils::tracking_utils::init_tracing()?;
-    let storage: &dyn StorageService<String> = &RocksdbStorage::new("rocksdb/app_storage.db")?;
+    let system_config = utils::config::load_config();
+    info!(
+        "starting with port {} and path {}",
+        system_config.port, system_config.storage_path
+    );
+    storage::init_storage("rocksdb", format!("rocksdb/{}", system_config.storage_path));
+    // storage::init_storage("memory", format!("rocksdb/{}",system_config.storage_path));
 
-    // storage.set("test", "test2")?;
-    let value = storage.get("test")?;
-    info!("get value: {} from key: test", value);
-
-    // api::start_http_server(8080).await.unwrap();
-    // info!("HTTP server started");
+    axum::start_axum_server(system_config.port).await;
     Ok(())
 }

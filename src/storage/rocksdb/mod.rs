@@ -1,14 +1,16 @@
+use anyhow::Error;
+use async_trait::async_trait;
 use rocksdb::{DB, DBCompactionStyle, Options, SliceTransform};
 
-use crate::storage::StorageService;
+use crate::storage::{StorageService, entity::DataEntity};
 
 #[derive(Debug)]
-pub struct RocksdbStorage {
+pub(crate) struct RocksdbStorage {
     db: DB,
 }
 
 impl RocksdbStorage {
-    pub fn new(path: &str) -> Result<RocksdbStorage, anyhow::Error> {
+    pub fn new(path: String) -> Result<RocksdbStorage, anyhow::Error> {
         let opts = Self::build_rocksdb_options();
         let db = DB::open(&opts, path)
             .map_err(|e| anyhow::Error::msg(format!("Failed to open DB: {}", e)))?;
@@ -35,31 +37,40 @@ impl RocksdbStorage {
         let transform = SliceTransform::create_fixed_prefix(10);
         opts.set_prefix_extractor(transform);
         opts.set_memtable_prefix_bloom_ratio(0.2);
-        return opts;
+        opts
     }
 }
 
-impl StorageService<String> for RocksdbStorage {
-    fn set(&self, key: &str, value: &str) -> Result<(), anyhow::Error> {
+#[async_trait]
+impl StorageService for RocksdbStorage {
+    async fn set(&self, entity: DataEntity) -> Result<(), Error> {
+        let bytes = serde_json::to_vec(&entity)
+            .map_err(|e| anyhow::Error::msg(format!("Failed to serialize entity: {}", e)))?;
+
         self.db
-            .put(key, value)
+            .put(&entity.key, bytes)
             .map_err(|e| anyhow::Error::msg(format!("Failed to set: {}", e)))?;
         Ok(())
     }
 
-    fn get(&self, key: &str) -> Result<String, anyhow::Error> {
+    async fn get(&self, key: &str) -> Result<Option<DataEntity>, anyhow::Error> {
         let value = self
             .db
             .get(key)
             .map_err(|e| anyhow::Error::msg(format!("Failed to get: {}", e)))?;
-        match value {
-            Some(value) => Ok(String::from_utf8(value)
-                .map_err(|e| anyhow::Error::msg(format!("Failed to get: {}", e)))?),
-            None => Ok("".to_string()),
-        }
+        let entity = match value {
+            Some(bytes) => {
+                let entity = serde_json::from_slice::<DataEntity>(&bytes).map_err(|e| {
+                    anyhow::Error::msg(format!("Failed to deserialize entity: {}", e))
+                })?;
+                Some(entity)
+            }
+            None => None,
+        };
+        Ok(entity)
     }
 
-    fn delete(&self, key: &str) -> Result<(), anyhow::Error> {
+    async fn delete(&self, key: &str) -> Result<(), anyhow::Error> {
         self.db
             .delete(key)
             .map_err(|e| anyhow::Error::msg(format!("Failed to delete: {}", e)))?;
