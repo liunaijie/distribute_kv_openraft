@@ -17,9 +17,9 @@ use rand::RngExt;
 use rocksdb::DB;
 use serde::{Deserialize, Serialize};
 
-use crate::storage::multiple_node::openraft_setting::{
-    RaftInnerRequest, RaftInnerResponse,
-    type_config::{SnapshotData, TypeConfig},
+use crate::{
+    raft::type_config::{RaftRpcRequestType, RaftRpcResponse, SnapshotData, TypeConfig},
+    utils::entity::DataEntity,
 };
 
 #[derive(Debug, Clone)]
@@ -218,23 +218,43 @@ impl RaftStateMachine<TypeConfig> for StateMachineStore {
         let mut responses = Vec::new();
 
         while let Some((entry, responder)) = entries.try_next().await? {
-            tracing::debug!(%entry.log_id, "replicate to sm");
-
             last_applied_log = Some(entry.log_id);
 
             let response = match entry.payload {
-                EntryPayload::Blank => RaftInnerResponse::none(),
-                EntryPayload::Normal(ref req) => match req {
-                    RaftInnerRequest::Set { key, value } => {
+                EntryPayload::Blank => RaftRpcResponse::none(),
+                EntryPayload::Normal(ref req) => match req.data_type {
+                    RaftRpcRequestType::KvSet => {
+                        let client_struct = DataEntity::from_bytes(&req.value)
+                            .map_err(|e| io::Error::other(e.to_string()))?;
+                        let server_struct = DataEntity::from_entity(client_struct);
                         let cf_data = self.cf_sm_data();
 
-                        batch.put_cf(cf_data, key.as_bytes(), value.as_bytes().unwrap());
-                        RaftInnerResponse::new(value.clone())
+                        batch.put_cf(
+                            cf_data,
+                            server_struct.key.clone(),
+                            server_struct.as_bytes().unwrap(),
+                        );
+                        RaftRpcResponse::new(server_struct.as_bytes().unwrap())
+                    }
+                    RaftRpcRequestType::KvDelete => {
+                        let key = String::from_utf8(req.value.clone())
+                            .map_err(|e| io::Error::other(e.to_string()))?;
+                        let cf_data = self.cf_sm_data();
+                        let entity = self
+                            .db
+                            .get_cf(cf_data, key.clone())
+                            .map_err(|e| io::Error::other(e.to_string()))?;
+                        if let Some(entity) = entity {
+                            batch.delete_cf(cf_data, key);
+                            RaftRpcResponse::new(entity)
+                        } else {
+                            RaftRpcResponse::none()
+                        }
                     }
                 },
                 EntryPayload::Membership(ref mem) => {
                     last_membership = Some(StoredMembership::new(Some(entry.log_id), mem.clone()));
-                    RaftInnerResponse::none()
+                    RaftRpcResponse::none()
                 }
             };
 

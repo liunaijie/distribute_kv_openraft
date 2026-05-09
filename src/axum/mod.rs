@@ -15,14 +15,14 @@ use tower_http::{
 };
 use tracing::info_span;
 
-pub mod api;
+mod api;
 mod raft;
 
 const REQUEST_ID_HEADER: &str = "x-request-id";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse {
-    status: bool,
+    pub status: bool,
     pub message: Option<String>,
     pub data: Option<Value>,
 }
@@ -78,18 +78,17 @@ impl ApiResponse {
     }
 }
 
-pub async fn start_axum_server(port: u32, with_raft: bool) {
-    let app = create_router(with_raft);
+pub async fn start_axum_server(port: u32) -> Result<(), anyhow::Error> {
+    let app = create_router();
     let address = format!("0.0.0.0:{}", port);
     tracing::info!("Starting server at: http://{}", address);
 
     let listener = tokio::net::TcpListener::bind(address).await.unwrap();
 
-    axum::serve(listener, app).await.unwrap();
-    tracing::info!("Server started successfully");
+    Ok(axum::serve(listener, app).await?)
 }
 /// 创建路由
-fn create_router(with_raft: bool) -> Router {
+fn create_router() -> Router {
     let x_request_id = HeaderName::from_static(REQUEST_ID_HEADER);
 
     let middleware = ServiceBuilder::new()
@@ -128,11 +127,7 @@ fn create_router(with_raft: bool) -> Router {
     Router::new()
         .route("/health", get(health_check))
         .nest("/api", api::app_routes())
-        .merge(if with_raft {
-            Router::new().nest("/raft", raft::raft_routes())
-        } else {
-            Router::new()
-        })
+        .nest("/raft", raft::raft_routes())
         .layer(middleware)
         .layer(cors)
 }

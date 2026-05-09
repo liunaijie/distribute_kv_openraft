@@ -1,8 +1,5 @@
 use std::future::Future;
 
-use crate::storage::{
-    multiple_node::openraft_setting::type_config::TypeConfig, type_config::FullSnapshotRequest,
-};
 use openraft::{
     OptionalSend, RaftNetworkV2, Snapshot, Vote,
     error::{RPCError, ReplicationClosed, StreamingError, Unreachable},
@@ -13,6 +10,8 @@ use openraft::{
 };
 use reqwest::Client;
 use serde::{Serialize, de::DeserializeOwned};
+
+use crate::raft::type_config::{FullSnapshotRequest, TypeConfig};
 
 pub struct NetworkConnection {
     rpc_addr: String,

@@ -1,8 +1,5 @@
 use std::{error::Error, io, ops::RangeBounds, sync::Arc};
 
-use crate::storage::multiple_node::openraft_setting::{
-    store::log_store::meta::StoreMeta, type_config::TypeConfig,
-};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use openraft::{
     Entry, LogState, OptionalSend, RaftLogReader, Vote,
@@ -11,6 +8,8 @@ use openraft::{
 };
 use rocksdb::{ColumnFamily, DB, Direction};
 use std::fmt::Debug;
+
+use crate::raft::{store::log_store::meta::StoreMeta, type_config::TypeConfig};
 
 #[derive(Debug, Clone)]
 pub struct LogStore {

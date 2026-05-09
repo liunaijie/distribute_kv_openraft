@@ -5,24 +5,19 @@ use tracing::info;
 use crate::utils::config::CliArgs;
 
 mod axum;
-mod storage;
+mod raft;
+mod service;
 mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     utils::tracking_utils::init_tracing()?;
-    info!("starting service...");
     let args = CliArgs::parse();
-
     let app_config = args.validate()?;
+    info!("starting kv service with config :  {}", app_config);
 
-    info!(
-        "starting with port {} and storage type {}",
-        app_config.port, app_config.storage_type
-    );
+    service::init_service(&app_config).await?;
 
-    storage::init_storage(app_config.storage_type.clone()).await;
-
-    axum::start_axum_server(app_config.port, app_config.is_multiple_node()).await;
+    axum::start_axum_server(app_config.api_port).await?;
     Ok(())
 }

@@ -13,10 +13,8 @@ use openraft::{
     },
 };
 
-use crate::storage::{
-    OpenRaftManagerService,
-    type_config::{FullSnapshotRequest, TypeConfig},
-};
+use crate::raft::type_config::{FullSnapshotRequest, TypeConfig};
+use crate::service::APP_STATE;
 
 pub fn raft_routes() -> Router {
     Router::new()
@@ -43,7 +41,11 @@ fn admin_routes() -> Router {
 async fn append_handler(
     Json(append_request): Json<AppendEntriesRequest<TypeConfig>>,
 ) -> Result<Json<AppendEntriesResponse<TypeConfig>>, (StatusCode, String)> {
-    OpenRaftManagerService::get_raft_instance()
+    APP_STATE
+        .get()
+        .unwrap()
+        .raft_manager
+        .raft_node
         .append_entries(append_request)
         .await
         .map(Json)
@@ -57,7 +59,11 @@ async fn snapshot_handler(
         meta: snapshot_request.meta,
         snapshot: Cursor::new(snapshot_request.data),
     };
-    OpenRaftManagerService::get_raft_instance()
+    APP_STATE
+        .get()
+        .unwrap()
+        .raft_manager
+        .raft_node
         .install_full_snapshot(snapshot_request.vote, req)
         .await
         .map(Json)
@@ -67,8 +73,11 @@ async fn snapshot_handler(
 async fn vote_handler(
     Json(vote_request): Json<VoteRequest<TypeConfig>>,
 ) -> Result<Json<VoteResponse<TypeConfig>>, (StatusCode, String)> {
-    
-    OpenRaftManagerService::get_raft_instance()
+    APP_STATE
+        .get()
+        .unwrap()
+        .raft_manager
+        .raft_node
         .vote(vote_request)
         .await
         .map(Json)
@@ -78,7 +87,11 @@ async fn vote_handler(
 async fn transfer_leader_handler(
     Json(transfer_leader_request): Json<TransferLeaderRequest<TypeConfig>>,
 ) -> Result<(), (StatusCode, String)> {
-    OpenRaftManagerService::get_raft_instance()
+    APP_STATE
+        .get()
+        .unwrap()
+        .raft_manager
+        .raft_node
         .handle_transfer_leader(transfer_leader_request)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))

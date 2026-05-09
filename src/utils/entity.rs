@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct DataEntity {
     pub key: String,
     pub value: String,
-    pub update_time: u128,
+    pub update_time: Option<u128>,
 }
 
 impl DataEntity {
@@ -15,7 +15,14 @@ impl DataEntity {
         DataEntity {
             key,
             value,
-            update_time: Self::now_millis_second(),
+            update_time: None,
+        }
+    }
+
+    pub fn from_entity(entity: DataEntity) -> DataEntity {
+        DataEntity {
+            update_time: Some(Self::now_millis_second()),
+            ..entity
         }
     }
 
@@ -39,10 +46,11 @@ impl DataEntity {
 
 impl Display for DataEntity {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let time = self.update_time.unwrap_or(0);
         write!(
             f,
             "key={},value={},update_time={}",
-            self.key, self.value, self.update_time
+            self.key, self.value, time
         )
     }
 }

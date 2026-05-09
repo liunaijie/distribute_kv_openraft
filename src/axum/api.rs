@@ -5,10 +5,8 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::{
-    axum::ApiResponse,
-    storage::{self, entity::DataEntity},
-};
+use crate::axum::ApiResponse;
+use crate::service::APP_STATE;
 
 pub fn app_routes() -> Router {
     Router::new().nest("/v1", v1_routes())
@@ -28,22 +26,38 @@ struct SetParams {
 }
 
 async fn set(Query(params): Query<SetParams>) -> ApiResponse {
-    let data_entity = DataEntity::new(params.key, params.value);
-    match storage::get_storage().set(data_entity.clone()).await {
-        Ok(_) => ApiResponse::success_with_data(data_entity),
+    match APP_STATE
+        .get()
+        .unwrap()
+        .storage
+        .set(params.key.as_str(), params.value.as_str())
+        .await
+    {
+        Ok(x) => ApiResponse::success_with_data(x),
         Err(e) => ApiResponse::error(e.to_string()),
     }
 }
 
-async fn get_value(Path(key): Path<String>) -> ApiResponse {
-    match storage::get_storage().get(key.as_str()).await {
+#[derive(Deserialize)]
+struct GetQueryParams {
+    linearize: Option<bool>,
+}
+
+async fn get_value(Path(key): Path<String>, Query(params): Query<GetQueryParams>) -> ApiResponse {
+    match APP_STATE
+        .get()
+        .unwrap()
+        .storage
+        .get(key.as_str(), params.linearize.unwrap_or(false))
+        .await
+    {
         Ok(entity) => ApiResponse::success_with_data(entity),
         Err(e) => ApiResponse::error(e.to_string()),
     }
 }
 
 async fn del_value(Path(key): Path<String>) -> ApiResponse {
-    match storage::get_storage().delete(key.as_str()).await {
+    match APP_STATE.get().unwrap().storage.delete(key.as_str()).await {
         Ok(_) => ApiResponse::success_with_empty_data(),
         Err(e) => ApiResponse::error(e.to_string()),
     }

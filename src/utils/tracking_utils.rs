@@ -1,8 +1,8 @@
 use anyhow::Result;
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub fn init_tracing() -> Result<()> {
-    let filter = EnvFilter::new("off,distribute_kv_openraft=info");
+    let filter = EnvFilter::new("off,distribute_kv_openraft=info,openraft=error");
 
     let file_layer = fmt::layer()
         .with_timer(fmt::time::LocalTime::rfc_3339())
