@@ -1,12 +1,11 @@
 # 简介
 一个为了学习Raft算法而编写的KV存储系统。  
-使用Rust编写，最开始先实现了单机版本的KV存储，支持内存和RocksDB两种存储后端。
-之后实现了分布式版本，使用OpenRaft库实现Raft算法，使用RocksDB作为持久化存储后端。  
-
+使用Rust编写，使用OpenRaft库实现Raft算法，使用RocksDB作为持久化存储后端。  
+使用axum作为Web框架，实现API接口，Raft通信接口实现
 
 ## 启动命令
 
-``bash
+```bash
 
 # 多节点（OpenRaft）后端，需要指定节点ID、端口、存储路径和成员列表
 # member list format: <node_id>@<ip>:<port>,<node_id>@<ip>:<port>
